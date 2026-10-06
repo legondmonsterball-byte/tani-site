@@ -1,0 +1,552 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>사생 탄이</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;800&display=swap" rel="stylesheet">
+<style>
+  :root { --ink:#2a2622; --muted:#8a8178; --accent:#e9a825; --pink:#ff8fb1; }
+  * { box-sizing: border-box; }
+  html, body { margin:0; overscroll-behavior:none; }
+  body {
+    font-family: 'Noto Sans KR', -apple-system, sans-serif; color: var(--ink);
+    background: radial-gradient(120% 90% at 50% 30%, #fffaf0 0%, #f6ecda 55%, #efe0c6 100%) fixed;
+    -webkit-tap-highlight-color: transparent; user-select:none; -webkit-user-select:none;
+  }
+  canvas { position:fixed; inset:0; width:100%; height:100%; display:block; touch-action:pan-y; z-index:0; }
+  .spacer { height:500vh; pointer-events:none; }
+  .title { position:fixed; left:24px; top:calc(env(safe-area-inset-top) + 22px); pointer-events:none; z-index:2; }
+  .title small { display:block; font-size:12px; letter-spacing:.18em; color:var(--muted); font-weight:500; }
+  .title h1 { margin:4px 0 0; font-size:44px; line-height:1.05; font-weight:800; letter-spacing:-.02em; }
+  .hint { position:fixed; left:0; right:0; bottom:calc(env(safe-area-inset-bottom) + 28px); text-align:center; color:var(--muted); font-size:14px; line-height:1.6; pointer-events:none; z-index:2; }
+  .bubble { position:fixed; left:0; top:0; z-index:3; pointer-events:none; opacity:0; transition:opacity .25s; padding:6px 12px; border-radius:999px; background:rgba(255,255,255,.88); color:var(--accent); font-weight:800; font-size:15px; letter-spacing:.06em; box-shadow:0 4px 14px rgba(120,90,40,.12); white-space:nowrap; }
+  .bubble.on { opacity:1; }
+  .sec { position:fixed; left:24px; right:24px; top:calc(env(safe-area-inset-top) + 22px); opacity:0; pointer-events:none; z-index:2; will-change:opacity, transform; }
+  .sec small { display:block; font-size:12px; letter-spacing:.18em; color:var(--pink); font-weight:800; }
+  .sec h2 { margin:6px 0 8px; font-size:40px; line-height:1.1; font-weight:800; letter-spacing:-.02em; }
+  .sec p { margin:0 0 16px; color:var(--muted); font-size:15px; line-height:1.5; max-width:20em; }
+  .sec a { pointer-events:auto; display:inline-block; padding:12px 18px; border-radius:999px; background:rgba(255,143,177,.18); color:#d6406f; font-weight:800; font-size:15px; text-decoration:none; border:1px solid rgba(255,143,177,.45); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="spacer"></div>
+
+<div class="title" id="intro"><small>HUFS GLOBAL · DORM CAT</small><h1>사생<br>탄이</h1></div>
+<div class="hint" id="hint">화면을 터치해서 탄이를 불러보세요<br>가만히 대고 있으면 비비고, 스크롤하면 달려가요</div>
+<div class="bubble" id="bubble"></div>
+
+<div class="sec" data-center="0.37" data-w="0.13">
+  <small>APP 01</small><h2>다음 수업</h2>
+  <p>다음 수업이 몇 시, 어느 강의실인지 탄이가 알려줘요.</p>
+  <a href="#">설치 방법 보기</a>
+</div>
+<div class="sec" data-center="0.70" data-w="0.13">
+  <small>APP 02</small><h2>운동 기록</h2>
+  <p>오늘 한 운동이 하나씩 쌓이는 재미.</p>
+  <a href="#">설치 방법 보기</a>
+</div>
+<div class="sec" data-center="1.0" data-w="0.14">
+  <small>FOLLOW</small><h2>사생 탄이</h2>
+  <p>탄이 소식은 인스타에서 만나요.</p>
+  <a href="#">인스타그램</a>
+</div>
+
+<script src="three.min.js"></script>
+<script>
+(() => {
+try { history.scrollRestoration = 'manual'; } catch (e) {}
+scrollTo(0, 0);
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.Fog(0xf5ead2, 14, 34);
+const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 60);
+
+// ---- 조명 ----
+scene.add(new THREE.HemisphereLight(0xffffff, 0xf0dcc0, 1.0));
+const key = new THREE.DirectionalLight(0xfff0d8, 2.6);
+key.castShadow = true;
+key.shadow.mapSize.set(1024, 1024); key.shadow.radius = 6; key.shadow.bias = -0.0008;
+Object.assign(key.shadow.camera, { left:-5, right:5, top:5, bottom:-5, near:1, far:18 });
+scene.add(key, key.target);
+const rim = new THREE.DirectionalLight(0xb9c8ff, 1.8);
+scene.add(rim, rim.target);
+
+// ---- 바닥(그림자만) ----
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(40, 80), new THREE.ShadowMaterial({ opacity: 0.22 }));
+ground.rotation.x = -Math.PI/2; ground.position.z = -20; ground.receiveShadow = true; scene.add(ground);
+
+// ---- 재질 ----
+const fur = new THREE.MeshPhysicalMaterial({
+  color: 0x1d2030, roughness: 0.6, clearcoat: 0.25, clearcoatRoughness: 0.5,
+  sheen: 1, sheenColor: new THREE.Color(0x7f8fc8), sheenRoughness: 0.6
+});
+const innerEar = new THREE.MeshStandardMaterial({ color: 0x7a4d5a, roughness: 0.7 });
+const eyeMat = new THREE.MeshPhysicalMaterial({ color: 0xffc63c, emissive: 0xffa800, emissiveIntensity: 0.35, roughness: 0.15, clearcoat: 1 });
+const black = new THREE.MeshBasicMaterial({ color: 0x050507 });
+const white = new THREE.MeshBasicMaterial({ color: 0xffffff });
+const noseMat = new THREE.MeshStandardMaterial({ color: 0x4a4350, roughness: 0.4 });
+const whiskerMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent:true, opacity:0.75 });
+const pinkJelly = new THREE.MeshPhysicalMaterial({ color: 0xff9fba, emissive: 0xff6f98, emissiveIntensity: 0.18, roughness: 0.18, clearcoat: 1, clearcoatRoughness: 0.1 });
+const mouthMat = new THREE.MeshBasicMaterial({ color: 0x2a0d14 });
+const tongueMat = new THREE.MeshBasicMaterial({ color: 0xff7f9f });
+
+function mesh(geo, mat, parent, pos = [0,0,0], scale = [1,1,1], shadow = true) {
+  const m = new THREE.Mesh(geo, mat);
+  m.position.set(...pos); m.scale.set(...scale);
+  m.castShadow = shadow; parent && parent.add(m); return m;
+}
+const sph = new THREE.SphereGeometry(1, 40, 28);
+
+// ---- 탄이 ----
+// cat(위치·방향) > rig(몸 전체 기울기 축, 몸 중심) > body(몸·머리·다리·꼬리)
+const cat = new THREE.Group(); scene.add(cat);
+const rig = new THREE.Group(); rig.position.y = 0.55; cat.add(rig);
+const body = new THREE.Group(); body.position.y = -0.55; rig.add(body);
+mesh(sph, fur, body, [0, 0.64, -0.02], [0.58, 0.54, 0.82]);       // 몸통
+mesh(sph, fur, body, [0, 0.62, 0.38], [0.5, 0.48, 0.5]);          // 가슴
+mesh(sph, fur, body, [0, 0.62, -0.5], [0.5, 0.46, 0.45]);         // 엉덩이
+
+const head = new THREE.Group(); head.position.set(0, 1.12, 0.62); body.add(head);
+mesh(sph, fur, head, [0,0,0], [0.62, 0.55, 0.56]);                // 머리
+mesh(sph, fur, head, [0,-0.14,0.3], [0.3, 0.2, 0.26]);            // 주둥이
+mesh(new THREE.SphereGeometry(1,16,12), noseMat, head, [0,-0.06,0.52], [0.06,0.045,0.04]);
+// 입 (하품·그루밍 때만 열림)
+const mouth = mesh(sph, mouthMat, head, [0,-0.2,0.5], [0.075, 0.001, 0.05], false);
+const tongue = mesh(sph, tongueMat, head, [0,-0.21,0.52], [0.05, 0.001, 0.045], false);
+// 귀: 머리 속에 뿌리를 깊이 묻고, 납작한 삼각 모양으로
+const ears = [];
+for (const s of [-1, 1]) {
+  const ear = new THREE.Group(); ear.position.set(s*0.3, 0.3, -0.06); head.add(ear);
+  const shape = new THREE.Group(); ear.add(shape);
+  mesh(sph, fur, shape, [0,0.02,0], [0.27, 0.22, 0.2], false);                   // 귀 뿌리(머리와 매끈하게 이어줌)
+  mesh(new THREE.ConeGeometry(0.25, 0.52, 48, 6), fur, shape, [0,0.2,0], [1,1,0.55]);
+  mesh(sph, fur, shape, [0,0.455,0], [0.065,0.065,0.04]);                        // 둥근 끝
+  mesh(new THREE.ConeGeometry(0.15, 0.34, 48), innerEar, shape, [0,0.17,0.075], [1,1,0.3], false);
+  ears.push({ g: ear, s });
+}
+// 눈
+const eyes = []; const pupils = [];
+for (const s of [-1, 1]) {
+  const eye = new THREE.Group(); eye.position.set(s*0.23, 0.07, 0.4); head.add(eye);
+  mesh(sph, eyeMat, eye, [0,0,0], [0.15, 0.17, 0.09], false);
+  pupils.push(mesh(sph, black, eye, [0,0,0.07], [0.055, 0.13, 0.03], false));
+  mesh(sph, white, eye, [s*-0.04,0.07,0.1], [0.035,0.035,0.02], false);
+  eyes.push(eye);
+}
+// 수염
+for (const s of [-1, 1]) for (let i = 0; i < 3; i++) {
+  const w = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.42, 6), whiskerMat);
+  w.rotation.z = Math.PI/2 + s*(0.12 - i*0.12); w.rotation.y = s*0.25;
+  w.position.set(s*0.34, -0.12 - i*0.025, 0.42); head.add(w);
+}
+// 다리 + 핑크 젤리 발바닥 (0,1 = 앞다리 / 2,3 = 뒷다리)
+const legs = [];
+for (const [x, z] of [[-0.27,0.42],[0.27,0.42],[-0.26,-0.45],[0.26,-0.45]]) {
+  const leg = new THREE.Group(); leg.position.set(x, 0.56, z); body.add(leg);
+  mesh(new THREE.CapsuleGeometry(0.15, 0.26, 10, 20), fur, leg, [0,-0.24,0]);
+  mesh(sph, fur, leg, [0,-0.46,0.06], [0.17, 0.11, 0.23]);
+  mesh(sph, pinkJelly, leg, [0,-0.545,0.05], [0.095, 0.035, 0.11], false);
+  for (const [dx, dz] of [[-0.085,0.19],[0,0.235],[0.085,0.19]])
+    mesh(sph, pinkJelly, leg, [dx,-0.545,dz], [0.04, 0.03, 0.045], false);
+  legs.push(leg);
+}
+// 꼬리 (매끈한 튜브: 세운 모양 ↔ 몸에 감은 모양을 섞음)
+const tailMesh = new THREE.Mesh(new THREE.BufferGeometry(), fur); tailMesh.castShadow = true; body.add(tailMesh);
+const tailTip = mesh(sph, fur, body, [0,0,0], [0.095,0.095,0.095]);
+const TN = 10, tp = new THREE.Vector3();
+function updateTail(time, excite, rest) {
+  const pts = [];
+  for (let i = 0; i < TN; i++) {
+    const t = i / (TN - 1);
+    const sway = Math.sin(time * (2 + excite * 2.5) - t * 3.2) * (0.04 + 0.22 * t * t) * (0.6 + excite) * (1 - rest * 0.7);
+    const ux = sway, uy = 0.78 + t * 1.05, uz = -0.6 - Math.sin(t * Math.PI) * 0.13 - t * 0.1;
+    const rx = Math.sin(t * 2.3) * 0.55 + sway * 0.4, ry = 0.46 - t * 0.2, rz = -0.62 - t * 0.22 + (1 - Math.cos(t * 2.3)) * 0.2;
+    pts.push(new THREE.Vector3(ux + (rx - ux) * rest, uy + (ry - uy) * rest, uz + (rz - uz) * rest));
+  }
+  tailMesh.geometry.dispose();
+  tailMesh.geometry = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 24, 0.085, 12, false);
+  tailTip.position.copy(pts[TN - 1]);
+}
+
+// ---- 장면 소품 (젤리 느낌) ----
+const TOTAL = 18;
+function jelly(color) { return new THREE.MeshPhysicalMaterial({ color, roughness: 0.2, clearcoat: 1, clearcoatRoughness: 0.12, sheen: 0.6, sheenColor: new THREE.Color(0xffffff) }); }
+const blocks = new THREE.Group();
+[[0x8ec5ff, 0.3, -0.25, 1.5], [0xffb3cb, 0.88, 0.2, 1.2], [0xffe08a, 1.46, -0.1, 1.0]].forEach(([c, y, x, len], i) => {
+  const b = mesh(new THREE.CapsuleGeometry(0.28, len, 12, 24), jelly(c), blocks, [x, y, 0]);
+  b.rotation.z = Math.PI/2; b.userData = { base: y, ph: i * 1.3 };
+});
+blocks.position.set(0, 0, -(TOTAL * 0.37) - 2.6); scene.add(blocks);
+const bell = new THREE.Group();
+const bar = mesh(new THREE.CylinderGeometry(0.1, 0.1, 1.9, 24), jelly(0xd9d4cc), bell, [0, 0, 0]); bar.rotation.z = Math.PI/2;
+for (const s of [-1, 1]) {
+  mesh(sph, jelly(0xffa06b), bell, [s*0.95, 0, 0], [0.22, 0.62, 0.62]);
+  mesh(sph, jelly(0xffc09a), bell, [s*0.66, 0, 0], [0.16, 0.46, 0.46]);
+}
+bell.position.set(0, 0.8, -(TOTAL * 0.70) - 2.6); scene.add(bell);
+const ball = mesh(sph, jelly(0xff9fba), scene, [0.6, 0.55, -TOTAL - 1.6], [0.55, 0.55, 0.55]);
+// 탄이가 뛰어넘을 소품 정보 (H=뛰어넘는 높이, R=점프 구간 반지름, W=폭)
+const hopProps = [
+  { g: blocks, H: 2.15, R: 1.6, W: 1.2 },
+  { g: bell,   H: 1.55, R: 1.5, W: 1.4 },
+  { g: ball,   H: 1.25, R: 1.2, W: 0.7 },
+];
+
+// ---- 포즈 (몸 기울기·다리 각도 목표값, 상태마다 부드럽게 섞임) ----
+// pitch: 몸통 앞뒤 기울기(음수=코가 위로) / f,r: 앞·뒷다리의 '월드' 각도(음수=앞으로) / fs,rs: 다리 길이 / head: 머리 기울기
+const POSES = {
+  stand:   { pitch: 0,     rigY: 0,     rigZ: 0,    f: 0,     r: 0,     fs: 1,    rs: 1,    head: -0.1, tail: 0 },
+  sit:     { pitch: -0.75, rigY: 0.2,   rigZ: -0.1, f: 0,     r: -1.25, fs: 1.25, rs: 0.85, head: 0.65, tail: 0.85 },
+  loaf:    { pitch: 0.04,  rigY: -0.3,  rigZ: 0,    f: -1.5,  r: -1.5,  fs: 0.85, rs: 0.85, head: 0.1,  tail: 1 },
+  stretch: { pitch: 0.45,  rigY: -0.02, rigZ: 0.05, f: -1.45, r: 0,     fs: 1,    rs: 1.1,  head: -0.5, tail: 0 },
+  crouch:  { pitch: 0.14,  rigY: -0.2,  rigZ: 0,    f: 0,     r: 0,     fs: 0.7,  rs: 0.65, head: -0.2, tail: 0 },
+  nuzzle:  { pitch: 0.14,  rigY: -0.1,  rigZ: 0.05, f: 0,     r: 0,     fs: 0.85, rs: 0.85, head: 0.25, tail: 0 },
+  air:     { pitch: 0,     rigY: 0.05,  rigZ: 0,    f: -0.9,  r: 0.9,   fs: 1,    rs: 1,    head: -0.2, tail: 0 },
+};
+const P = { ...POSES.stand };
+
+// ---- 상태 ----
+const pos = new THREE.Vector2(0, 0.5), vel = new THREE.Vector2();
+const target = new THREE.Vector2(0, 1.2), startPos = new THREE.Vector2(), pounceTgt = new THREE.Vector2();
+let pointerActive = false, pointerLow = false, lastPointer = -99, holding = false;
+let anchorX = 0, anchorY = 0, anchorT = 0, pressT = 0, pressX = 0, pressY = 0, pressMoved = 0;
+const yHist = []; let wantJump = false;
+let heading = 0, phase = 0, orbit = 0, blink = 0, nextBlink = 2, nextTwitch = 2;
+let state = 'stand', stateT = 0, stateDur = 0, idleWait = 1, lastActivity = 0;
+let rubAmt = 0, purrAmt = 0, groomAmt = 0, mouthOpen = 0, earBack = 0, jumpY = 0, lidNow = 1;
+const twitch = [0, 0];
+let camZoom = 1, tNow = 0, xMax = 2.6, camDist = 7.4, focusZ = 0.4, lastScrollY = 0, lastScrollT = -99, baseZ = 0, prog = 0;
+let tmpText = '', tmpUntil = 0;
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(), plane = new THREE.Plane(new THREE.Vector3(0,1,0), 0), hit = new THREE.Vector3(), wv = new THREE.Vector3();
+const hint = document.getElementById('hint'), bubble = document.getElementById('bubble'), intro = document.getElementById('intro');
+const secs = [...document.querySelectorAll('.sec')];
+const smooth = x => x * x * (3 - 2 * x);
+const clamp = THREE.MathUtils.clamp, lerp = THREE.MathUtils.lerp;
+
+function go(s, dur = 0) {
+  state = s; stateT = 0; stateDur = dur;
+  if (s === 'pounce') startPos.copy(pos);
+  if (s === 'stand') idleWait = 0.6 + Math.random();
+}
+function say(t, d = 1.2) { tmpText = t; tmpUntil = tNow + d; }
+// 소품 위에는 멈추지 않게 목표를 밀어냄 (스크롤 중에는 그대로 뛰어넘음)
+function avoidProps(t) {
+  for (const p of hopProps) {
+    const pz = p.g.position.z;
+    if (Math.abs(t.y - pz) < 1.3 && Math.abs(t.x - p.g.position.x) < p.W + 0.5) t.y = t.y > pz ? pz + 1.45 : pz - 1.45;
+  }
+}
+
+function setPointer(e) {
+  const r = canvas.getBoundingClientRect();
+  ndc.set(((e.clientX - r.left)/r.width)*2 - 1, -((e.clientY - r.top)/r.height)*2 + 1);
+  ray.setFromCamera(ndc, camera);
+  if (ray.ray.intersectPlane(plane, hit)) {
+    pointerLow = ndc.y < -0.28;   // 화면 아래쪽을 건드리면 탄이가 앞으로 나와서 정면을 봄
+    target.set(clamp(hit.x, -xMax, xMax), clamp(hit.z, baseZ - 1.4, baseZ + (pointerLow ? 3.6 : 2.6)));
+    pointerActive = true; lastPointer = tNow; lastActivity = tNow;
+  }
+  if (Math.hypot(e.clientX - anchorX, e.clientY - anchorY) > 14) { anchorX = e.clientX; anchorY = e.clientY; anchorT = tNow; }
+}
+canvas.addEventListener('pointerdown', e => {
+  holding = true; pressT = tNow; pressX = e.clientX; pressY = e.clientY; pressMoved = 0;
+  anchorX = e.clientX; anchorY = e.clientY; anchorT = tNow; yHist.length = 0;
+  setPointer(e);
+});
+canvas.addEventListener('pointermove', e => {
+  if (e.pointerType === 'mouse' || holding) {
+    setPointer(e);
+    if (holding) pressMoved = Math.max(pressMoved, Math.hypot(e.clientX - pressX, e.clientY - pressY));
+    // 위로 휙 올리면 점프
+    yHist.push([e.timeStamp, e.clientY]);
+    while (yHist.length && e.timeStamp - yHist[0][0] > 340) yHist.shift();
+    if (yHist.length > 1 && yHist[0][1] - e.clientY > 48) { wantJump = true; yHist.length = 0; }
+  }
+});
+addEventListener('pointerup', () => {
+  if (!holding) return; holding = false;
+  const tap = (tNow - pressT) < 0.25 && pressMoved < 12;
+  const far = Math.hypot(target.x - pos.x, target.y - pos.y) > 2.2;
+  if (state === 'rub' || state === 'purr') wantJump = true;          // 골골대다 손가락을 떼면 점프
+  else if (tap && far && ['stand','sit','loaf','groom','stretch'].includes(state)) { pounceTgt.copy(target); avoidProps(pounceTgt); go('stalk', 0.85); }
+});
+addEventListener('pointercancel', () => { holding = false; });
+
+function resize() {
+  const w = innerWidth, h = innerHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  xMax = w / h < 0.8 ? 1.0 : w / h < 1.3 ? 1.8 : 2.6;
+  camDist = w / h < 0.8 ? 11.5 : w / h < 1.3 ? 9 : 7.4;
+  camera.updateProjectionMatrix();
+}
+addEventListener('resize', resize); resize();
+
+const clock = new THREE.Clock();
+function frame() {
+  const dt = Math.min(clock.getDelta(), 0.05); tNow += dt;
+
+  // ---- 입력 상태 ----
+  const sy = scrollY, range = Math.max(1, document.documentElement.scrollHeight - innerHeight);
+  prog = clamp(sy / range, 0, 1);
+  if (Math.abs(sy - lastScrollY) > 0.5) { lastScrollT = tNow; lastActivity = tNow; pointerActive = false; }
+  lastScrollY = sy;
+  baseZ = -prog * TOTAL;
+  const scrolling = tNow - lastScrollT < 0.35;
+  const keep = (state === 'rub' || state === 'purr') ? 20 : 6;
+  if (holding) lastPointer = tNow;
+  const active = !window.__freeze && pointerActive && (tNow - lastPointer < keep);
+  const dwell = active && !scrolling && (tNow - anchorT) > (holding ? 0.25 : 0.7);
+
+  // ---- 상태 전환 ----
+  stateT += dt;
+  const busy = state === 'jump' || state === 'stalk' || state === 'pounce';
+  if (scrolling && state !== 'stand') go('stand');
+  else if (!busy && ['sit','loaf','groom','stretch'].includes(state) && active) go(state === 'loaf' ? 'stretch' : 'stand', 1.4);
+  const idleNear = Math.hypot(target.x - pos.x, target.y - pos.y) < 4;
+  if (wantJump && !scrolling && ['rub','purr','sit','groom','loaf','stretch'].includes(state)) go('jump');
+  else if (wantJump && state === 'stand' && vel.length() < 0.8 && idleNear) go('jump');
+  wantJump = false;
+
+  if (state === 'sit' && stateT > stateDur) { Math.random() < 0.35 ? go('groom', 3.4) : go('stand'); }
+  else if ((state === 'groom' || state === 'loaf') && stateT > stateDur) go(state === 'loaf' ? 'stretch' : 'stand', 2.4);
+  else if (state === 'stretch' && stateT > stateDur) go('stand');
+  else if (state === 'stalk' && stateT > stateDur) go('pounce');
+  else if (state === 'pounce' && stateT > 0.65) { go('stand'); say('냥!', 1.2); }
+  else if (state === 'jump' && stateT > 1.2) { go('stand'); say('냥!', 1.0); }
+  else if (state === 'rub') { if (!dwell) go('stand'); else if (stateT > 3.6) go('purr'); }
+  else if (state === 'purr' && !dwell) go('stand');
+
+  // ---- 이동 (서 있을 때만) ----
+  let desired = pos.clone(), maxSpeed = 1.1, accel = 3.2;
+  const toPtr = target.clone().sub(pos);
+  if (state === 'stand') {
+    if (scrolling) { target.set(0, baseZ - 0.6); maxSpeed = 9; accel = 5; desired.copy(target); }
+    else if (active) {
+      avoidProps(target);
+      maxSpeed = 3.4; desired.copy(target);
+      const d = toPtr.length();
+      if (dwell) {                                   // 가만히 있으면 다가와서 얼굴을 비빔
+        if (d > 0.7) desired.copy(target).sub(toPtr.clone().normalize().multiplyScalar(0.5));
+        else { go('rub', 3.6); desired.copy(pos); }
+      } else if (d < 1.4) {                          // 움직이는 포인터 주위를 8자로 휘감기
+        orbit += dt * 1.9;
+        desired.set(target.x + Math.sin(orbit)*0.85, target.y + Math.sin(orbit*2)*0.42);
+      }
+    } else {                                         // 혼자 있을 때: 돌아다니다 쉬다 반복
+      avoidProps(target);                            // 스크롤이 멈췄을 때 소품 한가운데 서지 않게
+      const d = Math.hypot(target.x - pos.x, target.y - pos.y);
+      if (d > 0.2) desired.copy(target);
+      else {
+        idleWait -= dt;
+        if (idleWait <= 0) {
+          const r = Math.random(), idle = tNow - lastActivity;
+          if (r < 0.3) go('sit', 5 + Math.random() * 4);
+          else if (r < 0.48) go('groom', 3.6);
+          else if (r < 0.6) go('stretch', 2.6);
+          else if (r < 0.76 && idle > 10) go('loaf', 9 + Math.random() * 6);
+          else { target.set((Math.random()-0.5)*2*xMax*0.8, baseZ + (Math.random()-0.3)*2.4); avoidProps(target); idleWait = 0.5 + Math.random(); }
+        }
+      }
+    }
+  }
+  let want = new THREE.Vector2();
+  if (state === 'stand') {
+    want = desired.clone().sub(pos).multiplyScalar(Math.min(1, dt * accel));
+    if (want.length() / dt > maxSpeed) want.setLength(maxSpeed * dt);
+  } else if (state === 'pounce') {
+    const u = clamp(stateT / 0.5, 0, 1), e = u * u * (3 - 2 * u);
+    const np = startPos.clone().lerp(pounceTgt, e);
+    want = np.sub(pos);
+  }
+  vel.copy(want).divideScalar(dt || 1);
+  pos.add(want);
+  const speed = vel.length();
+
+  // ---- 방향 ----
+  let faceX = vel.x, faceZ = vel.y, turn = speed > 0.25 ? 8 : 3;
+  if (speed < 0.25) { faceX = toPtr.x; faceZ = toPtr.y; }
+  if (state === 'rub' || state === 'purr' || state === 'stalk' || state === 'pounce') { faceX = (state === 'pounce' || state === 'stalk' ? pounceTgt.x : target.x) - pos.x; faceZ = (state === 'pounce' || state === 'stalk' ? pounceTgt.y : target.y) - pos.y; turn = 6; }
+  else if (['sit','loaf','groom','stretch'].includes(state)) { faceX = 0; faceZ = 1; turn = 1.6; }
+  if (pointerLow && active && ['stand','rub','purr'].includes(state) && Math.hypot(target.x - pos.x, target.y - pos.y) < 2.4) { faceX = 0; faceZ = 1; turn = 5; }   // 아래쪽 터치: 카메라(정면)를 봄   // 쉬는 탄이는 카메라 쪽을 봄
+  if (Math.abs(faceX) + Math.abs(faceZ) > 0.01 && state !== 'jump') {
+    let d = Math.atan2(faceX, faceZ) - heading; d = Math.atan2(Math.sin(d), Math.cos(d));
+    heading += d * Math.min(1, dt * turn);
+  }
+
+  // ---- 소품 뛰어넘기 (스크롤로 달릴 때) ----
+  let hopY = 0, hopPitch = 0, hopN = 0;
+  if (state === 'stand') {
+    const dirSign = vel.y <= 0 ? 1 : -1;
+    const hopMul = scrolling ? 1 : smooth(clamp(speed / 2, 0, 1));
+    for (const p of hopProps) {
+      const dz = pos.y - p.g.position.z;
+      if (Math.abs(dz) < p.R) {
+        const bump = (1 + Math.cos(Math.PI * dz / p.R)) / 2;
+        const xf = smooth(clamp(1 - (Math.abs(pos.x - p.g.position.x) - p.W) / 0.6, 0, 1));
+        const h = p.H * bump * xf * hopMul;
+        if (h > hopY) { hopY = h; hopPitch = -0.5 * (dz / p.R) * dirSign * xf; hopN = bump * xf * hopMul; }
+      }
+    }
+  }
+
+  // ---- 점프 / 덮치기 단계 ----
+  let phaseKey = state === 'stand' ? 'stand' : state;
+  let poseName = 'stand', airPitch = 0, extraCrouch = 0;
+  jumpY = 0;
+  switch (state) {
+    case 'sit': case 'purr': case 'groom': poseName = 'sit'; break;
+    case 'loaf': poseName = 'loaf'; break;
+    case 'stretch': poseName = 'stretch'; break;
+    case 'rub': poseName = 'nuzzle'; break;
+    case 'stalk': poseName = 'crouch'; break;
+    case 'jump': {
+      if (stateT < 0.3) { poseName = 'crouch'; }
+      else if (stateT < 1.0) { const v = (stateT - 0.3) / 0.7; jumpY = 1.55 * 4 * v * (1 - v); poseName = 'air'; airPitch = -0.45 * (1 - 2 * v); }
+      else poseName = 'crouch';
+      break;
+    }
+    case 'pounce': {
+      const u = clamp(stateT / 0.5, 0, 1);
+      if (u < 1) { jumpY = 0.85 * Math.sin(Math.PI * u); poseName = 'air'; airPitch = -0.3 * (1 - 2 * u); } else poseName = 'crouch';
+      break;
+    }
+  }
+  if (hopY > 0.02) { jumpY = Math.max(jumpY, hopY); }
+  const target_ = POSES[poseName];
+  const rate = (state === 'jump' || state === 'pounce' || state === 'stalk') ? 16 : (hopN > 0 ? 14 : 6);
+  for (const k in target_) P[k] = lerp(P[k], target_[k], Math.min(1, dt * rate));
+
+  // ---- 몸 / 다리 적용 ----
+  const moving = state === 'stand' ? Math.min(speed, 8) : 0;
+  phase += dt * (3 + moving * 2.6);
+  const swing = Math.min(1, moving / 1.2) * (0.75 + Math.min(1, moving / 6) * 0.45) * (1 - hopN);
+  const bob = Math.abs(Math.sin(phase)) * (0.045 + Math.min(moving, 6) * 0.02) * Math.min(1, moving) * (1 - hopN);
+  const breathe = Math.sin(tNow * 2.2) * 0.012;
+  rubAmt = lerp(rubAmt, state === 'rub' ? 1 : 0, Math.min(1, dt * 6));
+  purrAmt = lerp(purrAmt, (state === 'purr' || state === 'rub') ? 1 : 0, Math.min(1, dt * 5));
+  groomAmt = lerp(groomAmt, state === 'groom' ? 1 : 0, Math.min(1, dt * 5));
+  const purrShake = purrAmt * Math.sin(tNow * 48) * 0.006;
+  const rubSway = rubAmt * Math.sin(tNow * 5);
+
+  cat.position.set(pos.x, jumpY, pos.y);
+  cat.rotation.y = heading + (state === 'stalk' ? Math.sin(tNow * 28) * 0.07 : 0);   // 사냥 전 엉덩이 씰룩
+  rig.rotation.x = P.pitch + hopPitch * 0.9 + airPitch + Math.min(moving, 7) * 0.03 * (1 - hopN) + rubAmt * 0.0;
+  rig.position.set(rubSway * 0.04, 0.55 + P.rigY + bob, P.rigZ + rubAmt * (Math.sin(tNow * 5 + 1) * 0.05));
+  const squash = state === 'jump' && (stateT < 0.3 || stateT > 1.0) ? 0.08 : 0;
+  rig.scale.set(1 + breathe + purrAmt * 0.05 + purrShake + squash, 1 - breathe - purrAmt * 0.07 + purrShake - squash, 1);
+
+  const rp = rig.rotation.x, sw = Math.sin(phase) * swing;
+  const knead = purrAmt * (state === 'purr' ? 1 : 0) * 0.4;
+  const hopF = -0.9 * hopN, hopR = 0.9 * hopN;
+  legs[0].rotation.x = P.f - rp + sw + hopF + Math.sin(tNow * 6) * knead;
+  legs[1].rotation.x = lerp(P.f - rp - sw + hopF + Math.sin(tNow * 6 + Math.PI) * knead, -2.15 - rp + Math.sin(tNow * 9) * 0.14, groomAmt);
+  legs[2].rotation.x = P.r - rp - sw + hopR;
+  legs[3].rotation.x = P.r - rp + sw + hopR;
+  legs[0].scale.y = legs[1].scale.y = P.fs; legs[2].scale.y = legs[3].scale.y = P.rs;
+
+  // ---- 머리 ----
+  let local = Math.atan2(toPtr.x, toPtr.y) - heading; local = Math.atan2(Math.sin(local), Math.cos(local));
+  const lookYaw = clamp(local, -0.7, 0.7) * (speed > 0.25 ? 0.4 : (['sit','loaf','groom','stretch'].includes(state) ? 0.5 : 1));
+  const tgtYaw = lookYaw * (1 - rubAmt) + rubSway * 0.5;
+  head.rotation.y = lerp(head.rotation.y, tgtYaw, Math.min(1, dt * 8));
+  head.rotation.x = P.head + groomAmt * (0.2 + 0.18 * Math.sin(tNow * 9)) + rubAmt * (0.2 + 0.08 * Math.sin(tNow * 5)) + (active && state === 'stand' && toPtr.length() < 1.4 ? -0.08 : 0) - Math.min(moving, 6) * 0.02;
+  head.rotation.z = Math.sin(tNow * 1.5) * 0.02 + rubAmt * Math.sin(tNow * 5 + 1.3) * 0.4 + purrAmt * 0.1;
+  head.position.z = 0.62 + rubAmt * 0.06 * Math.sin(tNow * 5);
+
+  // ---- 입 (하품·그루밍·점프) ----
+  let mouthT = 0;
+  if (state === 'stretch' && stateT > 0.9) mouthT = Math.sin(clamp((stateT - 0.9) / 1.3, 0, 1) * Math.PI);
+  if (state === 'groom') mouthT = 0.25 + 0.2 * Math.max(0, Math.sin(tNow * 9));
+  if (state === 'pounce' && stateT < 0.5) mouthT = 0.5;
+  if (state === 'jump' && stateT > 0.3 && stateT < 1.0) mouthT = 0.35;
+  mouthOpen = lerp(mouthOpen, mouthT, Math.min(1, dt * 12));
+  mouth.scale.y = 0.001 + mouthOpen * 0.12; tongue.scale.y = 0.001 + Math.max(0, mouthOpen - 0.15) * 0.1;
+
+  // ---- 눈: 깜빡임, 쓰다듬을 때/잘 때 감김 ----
+  nextBlink -= dt; if (nextBlink < 0) { blink = 0.14; nextBlink = 2.5 + Math.random()*3; }
+  blink = Math.max(0, blink - dt);
+  let lidT = 1;
+  if (purrAmt > 0.3) lidT = 0.12;
+  else if (state === 'loaf') lidT = 0.06;
+  else if (state === 'groom') lidT = 0.35;
+  else if (state === 'stretch' && mouthT > 0.5) lidT = 0.1;
+  else if (state === 'sit' && Math.sin(tNow * 0.9) > 0.93) lidT = 0.3;   // 느린 눈 깜빡임
+  else if (blink > 0) lidT = 0.08;
+  lidNow = lerp(lidNow, lidT, Math.min(1, dt * (lidT < lidNow ? 28 : 12)));
+  for (const e of eyes) e.scale.y = lidNow;
+  const look = clamp(local * 1.2, -1, 1);
+  for (const p of pupils) { p.position.x = look * 0.05; p.scale.x = (active && toPtr.length() < 1.4) ? 0.1 : 0.055; }
+
+  // ---- 귀: 달릴 때/사냥 때 뒤로, 가끔 쫑긋 ----
+  nextTwitch -= dt; if (nextTwitch < 0) { twitch[Math.random() < 0.5 ? 0 : 1] = 1; nextTwitch = 1.5 + Math.random() * 3.5; }
+  const earT = (state === 'stalk' || state === 'pounce') ? 0.85 : (moving > 3 || scrolling) ? 0.5 : (state === 'jump' ? 0.3 : purrAmt > 0.3 ? 0.25 : 0);
+  earBack = lerp(earBack, earT, Math.min(1, dt * 8));
+  ears.forEach((e, i) => {
+    twitch[i] = Math.max(0, twitch[i] - dt * 5);
+    e.g.rotation.x = -0.1 - earBack * 0.7 - Math.sin(twitch[i] * Math.PI) * 0.35;
+    e.g.rotation.z = -e.s * (0.33 + earBack * 0.5 - Math.sin(twitch[i] * Math.PI) * 0.1);
+  });
+
+  // ---- 꼬리 ----
+  const excite = (active || scrolling || state === 'rub') ? (state === 'rub' ? 1.6 : 1) : 0.4;
+  P.tail = lerp(P.tail, target_.tail, Math.min(1, dt * 4));
+  updateTail(tNow, excite, P.tail);
+
+  // ---- 소품 살랑살랑 + 가까이 가면 나타남 ----
+  blocks.children.forEach(b => { b.position.y = b.userData.base + Math.sin(tNow * 1.6 + b.userData.ph) * 0.06; });
+  bell.rotation.y = Math.sin(tNow * 0.8) * 0.5; bell.position.y = 0.8 + Math.abs(Math.sin(tNow * 1.8)) * 0.12;
+  const sq = Math.abs(Math.sin(tNow * 2.4)); ball.position.y = 0.55 + sq * 0.35; ball.scale.set(0.55 + (1 - sq) * 0.04, 0.55 - (1 - sq) * 0.05, 0.55 + (1 - sq) * 0.04);
+  for (const g of [blocks, bell]) { const k = smooth(clamp(1 - (Math.abs(g.position.z - focusZ) - 5) / 4, 0, 1)); g.visible = k > 0.01; g.scale.setScalar(Math.max(k, 0.001)); }
+  { const k = smooth(clamp(1 - (Math.abs(ball.position.z - focusZ) - 5) / 4, 0, 1)); ball.visible = k > 0.01; ball.scale.multiplyScalar(k); }
+
+  // ---- 카메라가 탄이를 따라감 ----
+  focusZ += (pos.y + 0.4 - focusZ) * Math.min(1, dt * 3);
+  const closeUp = pointerLow && active && ['stand','rub','purr'].includes(state) && Math.hypot(target.x - pos.x, target.y - pos.y) < 2.4;
+  camZoom = lerp(camZoom, closeUp ? 0.6 : 1, Math.min(1, dt * 2.5));   // 아래쪽을 만지면 카메라가 탄이 쪽으로 다가옴
+  camera.position.set(0, camDist * camZoom * (0.42 - (1 - camZoom) * 0.3), focusZ + camDist * camZoom);
+  camera.lookAt(0, 0.5 + (1 - camZoom) * 0.35, focusZ);
+  key.position.set(-3, 6, focusZ + 4); key.target.position.set(0, 0, focusZ);
+  rim.position.set(3, 3, focusZ - 4); rim.target.position.set(0, 0, focusZ);
+  ground.position.z = focusZ;
+
+  // ---- 글씨: 스크롤 위치에 맞춰 나타나고 사라짐 ----
+  const introA = 1 - smooth(clamp(prog / 0.1, 0, 1));
+  intro.style.opacity = introA; hint.style.opacity = introA * (pointerActive ? 0 : 1);
+  for (const s of secs) {
+    const c = +s.dataset.center, w = +s.dataset.w;
+    const a = smooth(clamp(1 - Math.abs(prog - c) / w, 0, 1));
+    s.style.opacity = a; s.style.transform = `translateY(${(1 - a) * 14}px)`;
+    s.style.pointerEvents = a > 0.6 ? 'auto' : 'none';
+  }
+
+  // ---- 말풍선 (골골골 / zZ / 냥!) ----
+  let txt = '';
+  if (state === 'rub' || state === 'purr') txt = '골골골'; else if (state === 'loaf') txt = 'zZ'; else if (tNow < tmpUntil) txt = tmpText;
+  if (txt) {
+    head.getWorldPosition(wv); wv.y += 0.85 + jumpY * 0.0;
+    wv.project(camera);
+    bubble.style.transform = `translate(${(wv.x * 0.5 + 0.5) * innerWidth}px, ${(-wv.y * 0.5 + 0.5) * innerHeight}px) translate(-50%, -100%)`;
+    if (bubble.textContent !== txt) bubble.textContent = txt;
+  }
+  bubble.classList.toggle('on', !!txt);
+
+  renderer.render(scene, camera);
+  requestAnimationFrame(frame);
+}
+window.__tani = { go, get state() { return state; }, pos, target };
+frame();
+})();
+</script>
+</body>
+</html>
