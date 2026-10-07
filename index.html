@@ -27,6 +27,9 @@
   .sec small { display:block; font-size:12px; letter-spacing:.18em; color:var(--pink); font-weight:800; }
   .sec h2 { margin:6px 0 8px; font-size:40px; line-height:1.1; font-weight:800; letter-spacing:-.02em; }
   .sec p { margin:0 0 16px; color:var(--muted); font-size:15px; line-height:1.5; max-width:20em; }
+  .sec p.how { margin:-6px 0 16px; font-size:13px; color:#a39a90; }
+  .sec p.how b { color:#8a8178; }
+  .sec .soon { display:inline-block; padding:12px 18px; border-radius:999px; background:rgba(0,0,0,.05); color:#a39a90; font-weight:800; font-size:15px; }
   .sec a { pointer-events:auto; display:inline-block; padding:12px 18px; border-radius:999px; background:rgba(255,143,177,.18); color:#d6406f; font-weight:800; font-size:15px; text-decoration:none; border:1px solid rgba(255,143,177,.45); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); }
 </style>
 </head>
@@ -39,19 +42,21 @@
 <div class="bubble" id="bubble"></div>
 
 <div class="sec" data-center="0.37" data-w="0.13">
-  <small>APP 01</small><h2>다음 수업</h2>
-  <p>다음 수업이 몇 시, 어느 강의실인지 탄이가 알려줘요.</p>
-  <a href="#">설치 방법 보기</a>
+  <small>APP 01 · 한국외대 글로벌캠퍼스</small><h2>다음 수업</h2>
+  <p>에브리타임 시간표를 캡처해서 올리면 수업·강의실·교수님을 읽어 와요. 수업 전에 "백년관 몇 호"를 알림으로 알려주고, 지금 어느 건물로 가야 하는지 한눈에 보여줘요.</p>
+  <p class="how">아이폰은 사파리에서 열고 <b>공유 → 홈 화면에 추가</b>를 누르면 앱처럼 써요.</p>
+  <a href="https://next-class.timetable-app.workers.dev" target="_blank" rel="noopener">다음 수업 열어보기</a>
 </div>
 <div class="sec" data-center="0.70" data-w="0.13">
-  <small>APP 02</small><h2>운동 기록</h2>
-  <p>오늘 한 운동이 하나씩 쌓이는 재미.</p>
-  <a href="#">설치 방법 보기</a>
+  <small>APP 02 · 운동 · 식단</small><h2>운동 기록</h2>
+  <p>무게·횟수를 기록하면 지난 기록을 보고 다음 무게를 추천해줘요. 목표에 맞는 분할 루틴, 휴식 타이머, 식단 칼로리·단백질 계산, AI 칼로리 추정까지 한 곳에서 해요.</p>
+  <p class="how">기록은 내 폰에만 저장돼요. 홈 화면에 추가하면 앱처럼 써요.</p>
+  <a href="https://legondmonsterball-byte.github.io/workout-app/" target="_blank" rel="noopener">운동 기록 열어보기</a>
 </div>
 <div class="sec" data-center="1.0" data-w="0.14">
   <small>FOLLOW</small><h2>사생 탄이</h2>
-  <p>탄이 소식은 인스타에서 만나요.</p>
-  <a href="#">인스타그램</a>
+  <p>기숙사 고양이 탄이를 모티프로 앱을 만들고 있어요. 새 앱과 만드는 과정은 인스타에서 공개할게요.</p>
+  <span class="soon">인스타그램 곧 연결</span>
 </div>
 
 <script src="three.min.js"></script>
@@ -61,9 +66,11 @@ try { history.scrollRestoration = 'manual'; } catch (e) {}
 scrollTo(0, 0);
 const canvas = document.getElementById('c');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:true });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+const isTouch = matchMedia('(pointer: coarse)').matches;
+let pixelRatio = Math.min(devicePixelRatio, isTouch ? 1.5 : 2);
+renderer.setPixelRatio(pixelRatio);
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.type = isTouch ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.05;
 
@@ -75,7 +82,7 @@ const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 60);
 scene.add(new THREE.HemisphereLight(0xffffff, 0xf0dcc0, 1.0));
 const key = new THREE.DirectionalLight(0xfff0d8, 2.6);
 key.castShadow = true;
-key.shadow.mapSize.set(1024, 1024); key.shadow.radius = 6; key.shadow.bias = -0.0008;
+key.shadow.mapSize.set(isTouch ? 512 : 1024, isTouch ? 512 : 1024); key.shadow.radius = 6; key.shadow.bias = -0.0008;
 Object.assign(key.shadow.camera, { left:-5, right:5, top:5, bottom:-5, near:1, far:18 });
 scene.add(key, key.target);
 const rim = new THREE.DirectionalLight(0xb9c8ff, 1.8);
@@ -90,6 +97,7 @@ const fur = new THREE.MeshPhysicalMaterial({
   color: 0x1d2030, roughness: 0.6, clearcoat: 0.25, clearcoatRoughness: 0.5,
   sheen: 1, sheenColor: new THREE.Color(0x7f8fc8), sheenRoughness: 0.6
 });
+if (isTouch) { fur.sheen = 0; fur.clearcoat = 0; }
 const innerEar = new THREE.MeshStandardMaterial({ color: 0x7a4d5a, roughness: 0.7 });
 const eyeMat = new THREE.MeshPhysicalMaterial({ color: 0xffc63c, emissive: 0xffa800, emissiveIntensity: 0.35, roughness: 0.15, clearcoat: 1 });
 const black = new THREE.MeshBasicMaterial({ color: 0x050507 });
@@ -174,7 +182,7 @@ function updateTail(time, excite, rest) {
     pts.push(new THREE.Vector3(ux + (rx - ux) * rest, uy + (ry - uy) * rest, uz + (rz - uz) * rest));
   }
   tailMesh.geometry.dispose();
-  tailMesh.geometry = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 24, 0.085, 12, false);
+  tailMesh.geometry = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), isTouch ? 14 : 24, 0.085, isTouch ? 8 : 12, false);
   tailTip.position.copy(pts[TN - 1]);
 }
 
@@ -226,7 +234,11 @@ let state = 'stand', stateT = 0, stateDur = 0, idleWait = 1, lastActivity = 0;
 let rubAmt = 0, purrAmt = 0, groomAmt = 0, mouthOpen = 0, earBack = 0, jumpY = 0, lidNow = 1;
 const twitch = [0, 0];
 let camZoom = 1, tNow = 0, xMax = 2.6, camDist = 7.4, focusZ = 0.4, lastScrollY = 0, lastScrollT = -99, baseZ = 0, prog = 0;
-let tmpText = '', tmpUntil = 0;
+let tmpText = '', tmpUntil = 0, tailTick = 0, pendingMove = null, scrollRange = 1;
+const tA = new THREE.Vector2(), tB = new THREE.Vector2(), tC = new THREE.Vector2(), tD = new THREE.Vector2();
+const lastStyle = new Map();
+function setStyle(el, prop, val) { const k = el; let o = lastStyle.get(k); if (!o) { o = {}; lastStyle.set(k, o); } if (o[prop] !== val) { o[prop] = val; el.style[prop] = val; } }
+let fpsAcc = 0, fpsN = 0, fpsT = 0, lowFpsSecs = 0;
 const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(), plane = new THREE.Plane(new THREE.Vector3(0,1,0), 0), hit = new THREE.Vector3(), wv = new THREE.Vector3();
 const hint = document.getElementById('hint'), bubble = document.getElementById('bubble'), intro = document.getElementById('intro');
 const secs = [...document.querySelectorAll('.sec')];
@@ -265,7 +277,7 @@ canvas.addEventListener('pointerdown', e => {
 });
 canvas.addEventListener('pointermove', e => {
   if (e.pointerType === 'mouse' || holding) {
-    setPointer(e);
+    pendingMove = { clientX: e.clientX, clientY: e.clientY };
     if (holding) pressMoved = Math.max(pressMoved, Math.hypot(e.clientX - pressX, e.clientY - pressY));
     // 위로 휙 올리면 점프
     yHist.push([e.timeStamp, e.clientY]);
@@ -284,20 +296,30 @@ addEventListener('pointercancel', () => { holding = false; });
 
 function resize() {
   const w = innerWidth, h = innerHeight;
+  renderer.setPixelRatio(pixelRatio);
   renderer.setSize(w, h, false);
+  scrollRange = Math.max(1, document.documentElement.scrollHeight - h);
   camera.aspect = w / h;
   xMax = w / h < 0.8 ? 1.0 : w / h < 1.3 ? 1.8 : 2.6;
   camDist = w / h < 0.8 ? 11.5 : w / h < 1.3 ? 9 : 7.4;
   camera.updateProjectionMatrix();
 }
-addEventListener('resize', resize); resize();
+addEventListener('resize', resize); addEventListener('load', resize); resize();
 
 const clock = new THREE.Clock();
 function frame() {
   const dt = Math.min(clock.getDelta(), 0.05); tNow += dt;
 
   // ---- 입력 상태 ----
-  const sy = scrollY, range = Math.max(1, document.documentElement.scrollHeight - innerHeight);
+  if (pendingMove) { setPointer(pendingMove); pendingMove = null; }
+  // 프레임이 느리면 해상도를 한 단계씩 낮춤 (끊김 방지)
+  fpsAcc += dt; fpsN++;
+  if (fpsAcc >= 1) {
+    const fps = fpsN / fpsAcc; fpsAcc = 0; fpsN = 0;
+    if (fps < 46 && pixelRatio > 1) { pixelRatio = Math.max(1, pixelRatio - 0.25); resize(); }
+    else if (fps < 40 && pixelRatio <= 1 && key.castShadow && ++lowFpsSecs >= 3) { key.castShadow = false; ground.visible = false; }
+  }
+  const sy = scrollY, range = scrollRange;
   prog = clamp(sy / range, 0, 1);
   if (Math.abs(sy - lastScrollY) > 0.5) { lastScrollT = tNow; lastActivity = tNow; pointerActive = false; }
   lastScrollY = sy;
@@ -328,8 +350,8 @@ function frame() {
   else if (state === 'purr' && !dwell) go('stand');
 
   // ---- 이동 (서 있을 때만) ----
-  let desired = pos.clone(), maxSpeed = 1.1, accel = 3.2;
-  const toPtr = target.clone().sub(pos);
+  const desired = tA.copy(pos); let maxSpeed = 1.1, accel = 3.2;
+  const toPtr = tB.copy(target).sub(pos);
   if (state === 'stand') {
     if (scrolling) { target.set(0, baseZ - 0.6); maxSpeed = 9; accel = 5; desired.copy(target); }
     else if (active) {
@@ -337,7 +359,7 @@ function frame() {
       maxSpeed = 3.4; desired.copy(target);
       const d = toPtr.length();
       if (dwell) {                                   // 가만히 있으면 다가와서 얼굴을 비빔
-        if (d > 0.7) desired.copy(target).sub(toPtr.clone().normalize().multiplyScalar(0.5));
+        if (d > 0.7) desired.copy(target).sub(tD.copy(toPtr).normalize().multiplyScalar(0.5));
         else { go('rub', 3.6); desired.copy(pos); }
       } else if (d < 1.4) {                          // 움직이는 포인터 주위를 8자로 휘감기
         orbit += dt * 1.9;
@@ -360,14 +382,13 @@ function frame() {
       }
     }
   }
-  let want = new THREE.Vector2();
+  const want = tC.set(0, 0);
   if (state === 'stand') {
-    want = desired.clone().sub(pos).multiplyScalar(Math.min(1, dt * accel));
+    want.copy(desired).sub(pos).multiplyScalar(Math.min(1, dt * accel));
     if (want.length() / dt > maxSpeed) want.setLength(maxSpeed * dt);
   } else if (state === 'pounce') {
     const u = clamp(stateT / 0.5, 0, 1), e = u * u * (3 - 2 * u);
-    const np = startPos.clone().lerp(pounceTgt, e);
-    want = np.sub(pos);
+    want.copy(startPos).lerp(pounceTgt, e).sub(pos);
   }
   vel.copy(want).divideScalar(dt || 1);
   pos.add(want);
@@ -501,7 +522,7 @@ function frame() {
   // ---- 꼬리 ----
   const excite = (active || scrolling || state === 'rub') ? (state === 'rub' ? 1.6 : 1) : 0.4;
   P.tail = lerp(P.tail, target_.tail, Math.min(1, dt * 4));
-  updateTail(tNow, excite, P.tail);
+  tailTick++; if (!isTouch || tailTick % 2 === 0) updateTail(tNow, excite, P.tail);
 
   // ---- 소품 살랑살랑 + 가까이 가면 나타남 ----
   blocks.children.forEach(b => { b.position.y = b.userData.base + Math.sin(tNow * 1.6 + b.userData.ph) * 0.06; });
@@ -522,12 +543,12 @@ function frame() {
 
   // ---- 글씨: 스크롤 위치에 맞춰 나타나고 사라짐 ----
   const introA = 1 - smooth(clamp(prog / 0.1, 0, 1));
-  intro.style.opacity = introA; hint.style.opacity = introA * (pointerActive ? 0 : 1);
+  setStyle(intro, 'opacity', introA.toFixed(2)); setStyle(hint, 'opacity', (introA * (pointerActive ? 0 : 1)).toFixed(2));
   for (const s of secs) {
     const c = +s.dataset.center, w = +s.dataset.w;
     const a = smooth(clamp(1 - Math.abs(prog - c) / w, 0, 1));
-    s.style.opacity = a; s.style.transform = `translateY(${(1 - a) * 14}px)`;
-    s.style.pointerEvents = a > 0.6 ? 'auto' : 'none';
+    setStyle(s, 'opacity', a.toFixed(2)); setStyle(s, 'transform', `translateY(${((1 - a) * 14).toFixed(1)}px)`);
+    setStyle(s, 'pointerEvents', a > 0.6 ? 'auto' : 'none');
   }
 
   // ---- 말풍선 (골골골 / zZ / 냥!) ----
