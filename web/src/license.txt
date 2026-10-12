@@ -1,0 +1,11 @@
+Model Information:
+* title:	Cat v1.0
+* source:	https://sketchfab.com/3d-models/cat-v10-7239efeec7104dc3af46a8842a66aec0
+* author:	rhcreations (https://sketchfab.com/rhcreations)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Cat v1.0" (https://sketchfab.com/3d-models/cat-v10-7239efeec7104dc3af46a8842a66aec0) by rhcreations (https://sketchfab.com/rhcreations) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
