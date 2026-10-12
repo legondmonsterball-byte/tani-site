@@ -2,7 +2,7 @@
 
 ## 구성
 - `index.html`: 모바일용 (기본 도형 탄이, 스크롤 연출). 완성·배포됨.
-- `web.html`: **데스크톱용 (작업 중, 아직 배포 안 함)**. 3D 탄이를 크게 보여주는 페이지.
+- `web.html`: **데스크톱용 (배포됨: https://legondmonsterball-byte.github.io/tani-site/web.html, 보강 예정)**. 3D 탄이를 크게 보여주는 페이지.
   - 모델: Sketchfab "Cat v1.0" (rhcreations, CC BY 4.0), 원본은 `web/src/`. 페이지 하단에 출처 표기 필수.
   - `blender/tani_web_rig.py`: 원본에 뼈대를 새로 만들어 자동 가중치로 입히고, 눈을 호박색으로 바꿔 `web/tani.glb`로 내보냄.
     실행: `blender -b -P blender/tani_web_rig.py`
@@ -22,7 +22,9 @@
 - 자세: STAND / SIT / LIE(식빵 대신 엎드리기) / GROOM / STRETCH / MEOW, 쓰다듬기→purr 확인됨
 - 화면 확인: `web.html?pose=sit&cam=0.7,0.16,5.2` (자세 즉시 적용). 헤드리스 캡처는 Chrome `--headless=new --use-angle=metal --screenshot` 사용 (playwright 스크린샷은 시간초과)
 
-## 다음 할 일
-1. 사용자 피드백 반영
+## 다음 할 일 (2026-10-12 "일단 저장, 나중에 보강"으로 멈춤)
+1. 사용자 피드백 반영 — 전체화면으로 다시 띄워 보여준 상태에서 멈춤. 탄이 크기·화면 꽉 채움 여부 의견 받기
+   (로컬 전체화면: `python3 -m http.server 8765` 후 `open -na "Google Chrome" --args --user-data-dir=<임시폴더> --start-fullscreen --app=http://localhost:8765/web.html`)
 2. 앉은 자세 뒷다리 안쪽에 털 없이 번들거리는 부분 (메시가 접히는 곳)
-3. 데스크톱 접속 시 index.html → web.html 연결 방법 정하기
+3. 그루밍 때 앞발이 입까지 안 올라감
+4. 데스크톱 접속 시 index.html → web.html 자동 연결할지 정하기 (사용자 답 아직 없음)
